@@ -1,0 +1,1358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CloudCode Editor</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+<style>
+/* ─── CSS Reset & Variables ─── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg-primary:#0a0e17;
+  --bg-secondary:#111827;
+  --bg-tertiary:#1a2236;
+  --bg-panel:#0d1321;
+  --border:#1e293b;
+  --border-active:#38bdf8;
+  --text-primary:#e2e8f0;
+  --text-secondary:#94a3b8;
+  --text-muted:#64748b;
+  --accent:#38bdf8;
+  --accent-alt:#818cf8;
+  --accent-green:#34d399;
+  --accent-pink:#f472b6;
+  --accent-orange:#fb923c;
+  --accent-red:#f87171;
+  --neon-glow:0 0 10px rgba(56,189,248,.3),0 0 30px rgba(56,189,248,.1);
+  --neon-glow-strong:0 0 10px rgba(56,189,248,.5),0 0 40px rgba(56,189,248,.2);
+  --radius:8px;
+  --transition:all .2s ease;
+  --font-mono:'JetBrains Mono','Fira Code','Cascadia Code','SF Mono','Consolas',monospace;
+  --font-ui:'Inter','Segoe UI','Helvetica Neue',Arial,sans-serif;
+  --editor-font-size:14px;
+}
+html,body{
+  height:100%;width:100%;overflow:hidden;
+  font-family:var(--font-ui);
+  background:var(--bg-primary);
+  color:var(--text-primary);
+}
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}
+
+/* ─── App Layout ─── */
+#app{display:flex;flex-direction:column;height:100vh;width:100vw}
+
+/* ─── Header / Toolbar ─── */
+.header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 16px;height:48px;min-height:48px;
+  background:var(--bg-secondary);
+  border-bottom:1px solid var(--border);
+  z-index:100;
+  gap:12px;
+}
+.header-left{display:flex;align-items:center;gap:12px}
+.logo{
+  display:flex;align-items:center;gap:8px;
+  font-weight:700;font-size:16px;
+  background:linear-gradient(135deg,var(--accent),var(--accent-alt));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+  user-select:none;white-space:nowrap;
+}
+.logo svg{width:22px;height:22px;flex-shrink:0}
+.project-name{
+  background:var(--bg-tertiary);border:1px solid var(--border);
+  border-radius:var(--radius);padding:4px 12px;
+  color:var(--text-primary);font-size:13px;
+  outline:none;max-width:200px;
+  font-family:var(--font-ui);
+  transition:var(--transition);
+}
+.project-name:focus{border-color:var(--accent);box-shadow:var(--neon-glow)}
+.header-actions{display:flex;align-items:center;gap:6px;flex-wrap:nowrap}
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:6px 12px;border:1px solid var(--border);
+  border-radius:var(--radius);background:var(--bg-tertiary);
+  color:var(--text-secondary);font-size:12px;font-weight:500;
+  cursor:pointer;transition:var(--transition);
+  font-family:var(--font-ui);white-space:nowrap;
+}
+.btn:hover{background:var(--bg-secondary);color:var(--text-primary);border-color:var(--text-muted)}
+.btn svg{width:14px;height:14px;flex-shrink:0}
+.btn-accent{background:rgba(56,189,248,.1);border-color:rgba(56,189,248,.3);color:var(--accent)}
+.btn-accent:hover{background:rgba(56,189,248,.2);border-color:var(--accent);box-shadow:var(--neon-glow)}
+.btn-green{background:rgba(52,211,153,.1);border-color:rgba(52,211,153,.3);color:var(--accent-green)}
+.btn-green:hover{background:rgba(52,211,153,.2);border-color:var(--accent-green)}
+.btn-icon{padding:6px 8px}
+.btn .shortcut{
+  font-size:10px;padding:1px 4px;
+  background:rgba(255,255,255,.06);border-radius:3px;
+  color:var(--text-muted);margin-left:2px;
+}
+
+/* ─── Main Workspace ─── */
+.workspace{display:flex;flex:1;overflow:hidden;position:relative}
+
+/* ─── Editor Panel ─── */
+.editor-panel{
+  display:flex;flex-direction:column;
+  min-width:250px;width:50%;
+  background:var(--bg-panel);
+  overflow:hidden;
+}
+.editor-tabs{
+  display:flex;align-items:center;
+  padding:0;height:40px;min-height:40px;
+  background:var(--bg-secondary);
+  border-bottom:1px solid var(--border);
+  gap:0;
+  overflow-x:auto;
+}
+.editor-tab{
+  display:flex;align-items:center;gap:6px;
+  padding:0 16px;height:100%;
+  font-size:13px;font-weight:500;
+  color:var(--text-muted);cursor:pointer;
+  border-bottom:2px solid transparent;
+  transition:var(--transition);
+  user-select:none;white-space:nowrap;
+  position:relative;
+}
+.editor-tab:hover{color:var(--text-secondary);background:rgba(255,255,255,.02)}
+.editor-tab.active{color:var(--text-primary);border-bottom-color:var(--accent)}
+.editor-tab .dot{width:8px;height:8px;border-radius:50%}
+.tab-html .dot{background:var(--accent-orange)}
+.tab-css .dot{background:var(--accent)}
+.tab-js .dot{background:var(--accent-green)}
+.editor-tab-actions{margin-left:auto;display:flex;align-items:center;gap:4px;padding-right:8px}
+.font-size-ctrl{
+  display:flex;align-items:center;gap:4px;
+  font-size:11px;color:var(--text-muted);
+}
+.font-size-ctrl button{
+  background:var(--bg-tertiary);border:1px solid var(--border);
+  color:var(--text-secondary);width:22px;height:22px;
+  border-radius:4px;cursor:pointer;font-size:12px;
+  display:flex;align-items:center;justify-content:center;
+  transition:var(--transition);
+}
+.font-size-ctrl button:hover{border-color:var(--accent);color:var(--accent)}
+.editor-wrap{flex:1;overflow:hidden;position:relative}
+.code-area{
+  width:100%;height:100%;resize:none;
+  background:var(--bg-panel);color:var(--text-primary);
+  border:none;outline:none;
+  padding:16px;padding-left:60px;
+  font-family:var(--font-mono);
+  font-size:var(--editor-font-size);
+  line-height:1.6;
+  tab-size:2;-moz-tab-size:2;
+  overflow:auto;
+  white-space:pre;
+  word-wrap:normal;
+}
+.code-area::selection{background:rgba(56,189,248,.2)}
+.line-numbers{
+  position:absolute;top:0;left:0;
+  width:50px;height:100%;
+  padding:16px 8px 16px 0;
+  text-align:right;
+  font-family:var(--font-mono);
+  font-size:var(--editor-font-size);
+  line-height:1.6;
+  color:var(--text-muted);
+  background:var(--bg-panel);
+  border-right:1px solid var(--border);
+  user-select:none;pointer-events:none;
+  overflow:hidden;
+}
+/* ─── Gutter Resize Handle ─── */
+.gutter{
+  width:5px;cursor:col-resize;
+  background:var(--border);
+  transition:background .15s;
+  flex-shrink:0;
+  position:relative;
+  z-index:10;
+}
+.gutter:hover,.gutter.active{background:var(--accent);box-shadow:var(--neon-glow-strong)}
+.gutter::after{
+  content:'';position:absolute;
+  top:50%;left:50%;transform:translate(-50%,-50%);
+  width:3px;height:30px;border-radius:2px;
+  background:rgba(255,255,255,.15);
+}
+
+/* ─── Preview Panel ─── */
+.preview-panel{
+  display:flex;flex-direction:column;
+  flex:1;min-width:250px;
+  background:var(--bg-panel);
+  overflow:hidden;
+}
+.preview-header{
+  display:flex;align-items:center;
+  padding:0 12px;height:40px;min-height:40px;
+  background:var(--bg-secondary);
+  border-bottom:1px solid var(--border);
+  gap:8px;
+}
+.preview-header .title{
+  font-size:13px;font-weight:500;color:var(--text-secondary);
+  display:flex;align-items:center;gap:6px;
+}
+.preview-header .title svg{width:14px;height:14px;color:var(--accent)}
+.preview-actions{margin-left:auto;display:flex;align-items:center;gap:4px}
+.preview-frame-wrap{flex:1;position:relative;overflow:hidden;background:#fff}
+.preview-frame{width:100%;height:100%;border:none;background:#fff}
+
+/* ─── Console Panel ─── */
+.console-panel{
+  display:flex;flex-direction:column;
+  height:180px;min-height:60px;
+  border-top:1px solid var(--border);
+  background:var(--bg-panel);
+  overflow:hidden;
+}
+.console-header{
+  display:flex;align-items:center;
+  padding:0 12px;height:32px;min-height:32px;
+  background:var(--bg-secondary);
+  border-bottom:1px solid var(--border);
+  gap:8px;cursor:ns-resize;
+}
+.console-header .title{
+  font-size:12px;font-weight:600;
+  text-transform:uppercase;letter-spacing:.5px;
+  color:var(--text-muted);display:flex;align-items:center;gap:6px;
+}
+.console-header .title svg{width:12px;height:12px}
+.console-count{
+  background:var(--accent-red);color:#fff;
+  font-size:10px;font-weight:700;
+  padding:1px 6px;border-radius:8px;
+  display:none;
+}
+.console-count.visible{display:inline-block}
+.console-actions{margin-left:auto;display:flex;gap:4px}
+.console-body{
+  flex:1;overflow-y:auto;
+  padding:8px 12px;
+  font-family:var(--font-mono);
+  font-size:12px;line-height:1.7;
+}
+.console-entry{
+  padding:3px 0;border-bottom:1px solid rgba(255,255,255,.03);
+  display:flex;align-items:flex-start;gap:8px;
+  animation:fadeIn .15s ease;
+}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.console-entry.log{color:var(--text-primary)}
+.console-entry.warn{color:var(--accent-orange);background:rgba(251,146,60,.05)}
+.console-entry.error{color:var(--accent-red);background:rgba(248,113,113,.05)}
+.console-entry.info{color:var(--accent)}
+.console-entry .badge{
+  font-size:9px;font-weight:700;text-transform:uppercase;
+  padding:1px 5px;border-radius:3px;flex-shrink:0;margin-top:2px;
+}
+.console-entry.log .badge{background:rgba(148,163,184,.15);color:var(--text-muted)}
+.console-entry.warn .badge{background:rgba(251,146,60,.15);color:var(--accent-orange)}
+.console-entry.error .badge{background:rgba(248,113,113,.15);color:var(--accent-red)}
+.console-entry.info .badge{background:rgba(56,189,248,.15);color:var(--accent)}
+
+/* ─── Horizontal Console Gutter ─── */
+.gutter-h{
+  height:5px;cursor:ns-resize;
+  background:var(--border);
+  transition:background .15s;
+  flex-shrink:0;
+}
+.gutter-h:hover,.gutter-h.active{background:var(--accent);box-shadow:var(--neon-glow-strong)}
+
+/* ─── Fullscreen Preview ─── */
+.fullscreen-overlay{
+  position:fixed;inset:0;z-index:1000;
+  background:var(--bg-primary);
+  display:none;flex-direction:column;
+}
+.fullscreen-overlay.active{display:flex}
+.fullscreen-bar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 16px;height:44px;
+  background:var(--bg-secondary);border-bottom:1px solid var(--border);
+}
+.fullscreen-bar .title{font-size:14px;font-weight:600;color:var(--text-secondary)}
+.fullscreen-frame{flex:1;border:none;background:#fff;width:100%}
+
+/* ─── Toast Notification ─── */
+.toast-container{position:fixed;bottom:20px;right:20px;z-index:2000;display:flex;flex-direction:column;gap:8px}
+.toast{
+  padding:10px 16px;border-radius:var(--radius);
+  background:var(--bg-secondary);border:1px solid var(--border);
+  color:var(--text-primary);font-size:13px;
+  box-shadow:0 8px 32px rgba(0,0,0,.4);
+  animation:slideIn .3s ease;display:flex;align-items:center;gap:8px;
+  max-width:350px;
+}
+.toast.success{border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.1)}
+.toast.error{border-color:rgba(248,113,113,.4);background:rgba(248,113,113,.1)}
+.toast.info{border-color:rgba(56,189,248,.4);background:rgba(56,189,248,.1)}
+@keyframes slideIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+
+/* ─── Modal ─── */
+.modal-overlay{
+  position:fixed;inset:0;z-index:1500;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(4px);
+  display:none;align-items:center;justify-content:center;
+}
+.modal-overlay.active{display:flex}
+.modal{
+  background:var(--bg-secondary);border:1px solid var(--border);
+  border-radius:12px;padding:24px;
+  width:90%;max-width:500px;
+  box-shadow:0 20px 60px rgba(0,0,0,.5);
+  animation:modalIn .2s ease;
+}
+@keyframes modalIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+.modal h3{font-size:16px;margin-bottom:16px;color:var(--text-primary)}
+.modal p{font-size:13px;color:var(--text-secondary);margin-bottom:16px;line-height:1.6}
+.modal-input{
+  width:100%;padding:10px 12px;
+  background:var(--bg-tertiary);border:1px solid var(--border);
+  border-radius:var(--radius);color:var(--text-primary);
+  font-size:13px;font-family:var(--font-mono);
+  outline:none;transition:var(--transition);
+  word-break:break-all;
+}
+.modal-input:focus{border-color:var(--accent)}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.modal textarea.modal-input{min-height:100px;resize:vertical;font-size:12px}
+
+/* ─── Status Bar ─── */
+.statusbar{
+  display:flex;align-items:center;
+  padding:0 12px;height:24px;min-height:24px;
+  background:var(--bg-secondary);
+  border-top:1px solid var(--border);
+  font-size:11px;color:var(--text-muted);
+  gap:16px;
+}
+.statusbar .indicator{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--accent-green);
+  box-shadow:0 0 6px var(--accent-green);
+}
+.statusbar-right{margin-left:auto;display:flex;gap:16px;align-items:center}
+
+/* ─── Responsive ─── */
+@media(max-width:768px){
+  .header{padding:0 8px;gap:6px}
+  .btn span.label{display:none}
+  .btn{padding:6px 8px}
+  .project-name{max-width:120px}
+  .workspace{flex-direction:column}
+  .editor-panel{width:100% !important;min-height:200px;height:50%}
+  .gutter{width:100%;height:5px;cursor:ns-resize}
+  .preview-panel{min-height:150px}
+  .statusbar .hide-mobile{display:none}
+}
+
+/* ─── Drop Zone ─── */
+.drop-zone{
+  position:fixed;inset:0;z-index:3000;
+  background:rgba(10,14,23,.9);
+  display:none;align-items:center;justify-content:center;
+  backdrop-filter:blur(8px);
+}
+.drop-zone.active{display:flex}
+.drop-zone-inner{
+  border:2px dashed var(--accent);border-radius:16px;
+  padding:60px;text-align:center;
+  color:var(--accent);font-size:18px;font-weight:600;
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="url(#grad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <defs><linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#818cf8"/></linearGradient></defs>
+          <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+        </svg>
+        CloudCode
+      </div>
+      <input class="project-name" id="projectName" value="Untitled Project" spellcheck="false" maxlength="40">
+    </div>
+    <div class="header-actions">
+      <button class="btn" id="btnImport" title="Import Project">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span class="label">Import</span>
+      </button>
+      <button class="btn" id="btnExport" title="Export as ZIP">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <span class="label">Export</span>
+      </button>
+      <button class="btn btn-accent" id="btnShare" title="Share Project (Ctrl+Shift+S)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        <span class="label">Share</span>
+      </button>
+      <button class="btn btn-green" id="btnRun" title="Run (Ctrl+Enter)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <span class="label">Run</span>
+        <span class="shortcut">Ctrl+↵</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Workspace -->
+  <div class="workspace">
+    <!-- Editor Panel -->
+    <div class="editor-panel" id="editorPanel">
+      <div class="editor-tabs">
+        <div class="editor-tab tab-html active" data-tab="html"><span class="dot"></span> HTML</div>
+        <div class="editor-tab tab-css" data-tab="css"><span class="dot"></span> CSS</div>
+        <div class="editor-tab tab-js" data-tab="js"><span class="dot"></span> JS</div>
+        <div class="editor-tab-actions">
+          <div class="font-size-ctrl">
+            <button id="fontDec" title="Decrease font size">−</button>
+            <span id="fontSizeLabel">14</span>
+            <button id="fontInc" title="Increase font size">+</button>
+          </div>
+        </div>
+      </div>
+      <div class="editor-wrap" id="editorWrap">
+        <div class="line-numbers" id="lineNumbers"></div>
+        <textarea class="code-area" id="codeHTML" spellcheck="false" data-lang="html"></textarea>
+        <textarea class="code-area" id="codeCSS" spellcheck="false" data-lang="css" style="display:none"></textarea>
+        <textarea class="code-area" id="codeJS" spellcheck="false" data-lang="js" style="display:none"></textarea>
+      </div>
+    </div>
+
+    <!-- Resize Gutter -->
+    <div class="gutter" id="gutter"></div>
+
+    <!-- Preview Side -->
+    <div class="preview-panel" id="previewPanel">
+      <div class="preview-header">
+        <div class="title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          Preview
+        </div>
+        <div class="preview-actions">
+          <button class="btn btn-icon" id="btnRefresh" title="Refresh Preview">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+          </button>
+          <button class="btn btn-icon" id="btnFullscreen" title="Fullscreen Preview (F11)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="preview-frame-wrap">
+        <iframe class="preview-frame" id="previewFrame" sandbox="allow-scripts allow-modals allow-forms allow-same-origin" title="Preview"></iframe>
+      </div>
+
+      <!-- Console Gutter -->
+      <div class="gutter-h" id="consoleGutter"></div>
+
+      <!-- Console -->
+      <div class="console-panel" id="consolePanel">
+        <div class="console-header" id="consoleHeader">
+          <div class="title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+            Console
+          </div>
+          <span class="console-count" id="consoleCount">0</span>
+          <div class="console-actions">
+            <button class="btn btn-icon" id="btnConsoleClear" title="Clear Console" style="height:22px;padding:2px 6px">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="console-body" id="consoleBody"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status Bar -->
+  <div class="statusbar">
+    <span class="indicator"></span>
+    <span>Ready</span>
+    <span class="hide-mobile" id="statusCursor">Ln 1, Col 1</span>
+    <div class="statusbar-right">
+      <span class="hide-mobile" id="statusAutorun">Auto-run: ON</span>
+      <span class="hide-mobile" id="statusSaved">Saved</span>
+      <span>CloudCode v1.0</span>
+    </div>
+  </div>
+</div>
+
+<!-- Fullscreen Overlay -->
+<div class="fullscreen-overlay" id="fullscreenOverlay">
+  <div class="fullscreen-bar">
+    <div class="title">Fullscreen Preview</div>
+    <button class="btn" id="btnExitFullscreen">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      Exit (Esc)
+    </button>
+  </div>
+  <iframe class="fullscreen-frame" id="fullscreenFrame" sandbox="allow-scripts allow-modals allow-forms allow-same-origin" title="Fullscreen Preview"></iframe>
+</div>
+
+<!-- Share Modal -->
+<div class="modal-overlay" id="shareModal">
+  <div class="modal">
+    <h3>Share Project</h3>
+    <p>Copy this link to share your project. Anyone with this link can view and edit a copy of your code.</p>
+    <input class="modal-input" id="shareUrl" readonly>
+    <div class="modal-btns">
+      <button class="btn" id="shareClose">Close</button>
+      <button class="btn btn-accent" id="shareCopy">Copy Link</button>
+    </div>
+  </div>
+</div>
+
+<!-- Import Modal -->
+<div class="modal-overlay" id="importModal">
+  <div class="modal">
+    <h3>Import Project</h3>
+    <p>Paste shared project JSON, or drag &amp; drop a ZIP file onto the editor.</p>
+    <textarea class="modal-input" id="importData" placeholder='Paste JSON here: {"html":"...","css":"...","js":"..."}'></textarea>
+    <div class="modal-btns">
+      <button class="btn" id="importClose">Close</button>
+      <button class="btn btn-accent" id="importConfirm">Import</button>
+      <button class="btn btn-green" id="importFile">Import ZIP</button>
+    </div>
+  </div>
+</div>
+
+<!-- Drop Zone -->
+<div class="drop-zone" id="dropZone">
+  <div class="drop-zone-inner">Drop your ZIP or HTML file here</div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Hidden file input -->
+<input type="file" id="fileInput" accept=".zip,.html,.htm" style="display:none">
+
+<!-- JSZip CDN for export/import -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+<script>
+/* ═══════════════════════════════════════════════
+   CloudCode Editor — Core Application Logic
+   ═══════════════════════════════════════════════ */
+(function() {
+  'use strict';
+
+  // ── DOM References ──
+  const $ = id => document.getElementById(id);
+  const codeHTML = $('codeHTML');
+  const codeCSS = $('codeCSS');
+  const codeJS = $('codeJS');
+  const previewFrame = $('previewFrame');
+  const lineNumbers = $('lineNumbers');
+  const consoleBody = $('consoleBody');
+  const consoleCount = $('consoleCount');
+  const projectName = $('projectName');
+  const statusCursor = $('statusCursor');
+  const statusSaved = $('statusSaved');
+  const fontSizeLabel = $('fontSizeLabel');
+
+  const editors = { html: codeHTML, css: codeCSS, js: codeJS };
+  let activeTab = 'html';
+  let autoRunTimer = null;
+  let fontSize = 14;
+  let consoleEntries = 0;
+  const STORAGE_KEY = 'cloudcode_project';
+  const AUTO_RUN_DELAY = 800;
+
+  // ── Default Template ──
+  const defaultHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Project</title>
+</head>
+<body>
+  <div class="container">
+    <h1>Hello, CloudCode!</h1>
+    <p>Start editing to see live changes.</p>
+    <button id="clickMe">Click Me</button>
+    <div id="output"></div>
+  </div>
+</body>
+</html>`;
+
+  const defaultCSS = `* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+  color: #e2e8f0;
+}
+
+.container {
+  text-align: center;
+  padding: 40px;
+}
+
+h1 {
+  font-size: 2.5rem;
+  margin-bottom: 12px;
+  background: linear-gradient(135deg, #38bdf8, #818cf8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+p {
+  color: #94a3b8;
+  margin-bottom: 24px;
+}
+
+button {
+  padding: 12px 32px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #38bdf8, #818cf8);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(56, 189, 248, 0.3);
+}
+
+#output {
+  margin-top: 20px;
+  font-size: 1.2rem;
+  color: #34d399;
+}`;
+
+  const defaultJS = `let count = 0;
+
+document.getElementById('clickMe').addEventListener('click', () => {
+  count++;
+  document.getElementById('output').textContent = \`Clicked \${count} time\${count !== 1 ? 's' : ''}!\`;
+  console.log('Button clicked! Count:', count);
+});
+
+console.log('Script loaded successfully!');`;
+
+  // ── Toast System ──
+  function showToast(message, type = 'info') {
+    const container = $('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(30px)';
+      toast.style.transition = 'all .3s';
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
+  }
+
+  // ── Tab Switching ──
+  document.querySelectorAll('.editor-tab[data-tab]').forEach(tab => {
+    tab.addEventListener('click', () => {
+      switchTab(tab.dataset.tab);
+    });
+  });
+
+  function switchTab(tabName) {
+    activeTab = tabName;
+    document.querySelectorAll('.editor-tab[data-tab]').forEach(t => t.classList.remove('active'));
+    document.querySelector(`.editor-tab[data-tab="${tabName}"]`).classList.add('active');
+    Object.values(editors).forEach(e => e.style.display = 'none');
+    editors[tabName].style.display = 'block';
+    updateLineNumbers();
+    editors[tabName].focus();
+  }
+
+  // ── Line Numbers ──
+  function updateLineNumbers() {
+    const textarea = editors[activeTab];
+    const lines = textarea.value.split('\n').length;
+    let html = '';
+    for (let i = 1; i <= lines; i++) {
+      html += i + '\n';
+    }
+    lineNumbers.textContent = html;
+  }
+
+  // ── Sync Scroll for Line Numbers ──
+  Object.values(editors).forEach(textarea => {
+    textarea.addEventListener('scroll', () => {
+      if (textarea.style.display !== 'none') {
+        lineNumbers.style.transform = `translateY(-${textarea.scrollTop}px)`;
+      }
+    });
+    textarea.addEventListener('input', () => {
+      updateLineNumbers();
+      scheduleAutoRun();
+      scheduleSave();
+    });
+    textarea.addEventListener('keyup', updateCursorPos);
+    textarea.addEventListener('click', updateCursorPos);
+    // Tab key support
+    textarea.addEventListener('keydown', (e) => {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        if (e.shiftKey) {
+          // un-indent
+          const before = textarea.value.substring(0, start);
+          const lastNewline = before.lastIndexOf('\n');
+          const lineStart = lastNewline + 1;
+          const lineText = textarea.value.substring(lineStart, start);
+          if (lineText.startsWith('  ')) {
+            textarea.value = textarea.value.substring(0, lineStart) + textarea.value.substring(lineStart + 2);
+            textarea.selectionStart = textarea.selectionEnd = start - 2;
+          }
+        } else {
+          textarea.value = textarea.value.substring(0, start) + '  ' + textarea.value.substring(end);
+          textarea.selectionStart = textarea.selectionEnd = start + 2;
+        }
+        updateLineNumbers();
+        scheduleAutoRun();
+        scheduleSave();
+      }
+      // Auto-close brackets
+      const pairs = { '(': ')', '[': ']', '{': '}', "'": "'", '"': '"', '`': '`' };
+      if (pairs[e.key]) {
+        const s = textarea.selectionStart;
+        const end2 = textarea.selectionEnd;
+        if (s !== end2) {
+          e.preventDefault();
+          const selected = textarea.value.substring(s, end2);
+          textarea.value = textarea.value.substring(0, s) + e.key + selected + pairs[e.key] + textarea.value.substring(end2);
+          textarea.selectionStart = s + 1;
+          textarea.selectionEnd = end2 + 1;
+          updateLineNumbers();
+          scheduleAutoRun();
+          scheduleSave();
+        }
+      }
+    });
+  });
+
+  function updateCursorPos() {
+    const ta = editors[activeTab];
+    const text = ta.value.substring(0, ta.selectionStart);
+    const lines = text.split('\n');
+    statusCursor.textContent = `Ln ${lines.length}, Col ${lines[lines.length - 1].length + 1}`;
+  }
+
+  // ── Auto Run ──
+  function scheduleAutoRun() {
+    clearTimeout(autoRunTimer);
+    autoRunTimer = setTimeout(runPreview, AUTO_RUN_DELAY);
+  }
+
+  // ── Save / Load LocalStorage ──
+  let saveTimer = null;
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveProject, 500);
+    statusSaved.textContent = 'Saving...';
+  }
+
+  function saveProject() {
+    const data = {
+      name: projectName.value,
+      html: codeHTML.value,
+      css: codeCSS.value,
+      js: codeJS.value,
+      fontSize: fontSize
+    };
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      statusSaved.textContent = 'Saved';
+    } catch (e) {
+      statusSaved.textContent = 'Save failed';
+    }
+  }
+
+  function loadProject() {
+    // Check URL for shared project first
+    const hash = window.location.hash;
+    if (hash && hash.startsWith('#project=')) {
+      try {
+        const encoded = hash.substring('#project='.length);
+        const json = decodeURIComponent(atob(encoded));
+        const data = JSON.parse(json);
+        applyProjectData(data);
+        showToast('Shared project loaded!', 'success');
+        // Clear hash so re-edit doesn't keep re-loading
+        history.replaceState(null, '', window.location.pathname);
+        return;
+      } catch (e) {
+        showToast('Failed to load shared project', 'error');
+      }
+    }
+    // Fallback to localStorage
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const data = JSON.parse(raw);
+        applyProjectData(data);
+        return;
+      }
+    } catch (e) {}
+    // Defaults
+    codeHTML.value = defaultHTML;
+    codeCSS.value = defaultCSS;
+    codeJS.value = defaultJS;
+  }
+
+  function applyProjectData(data) {
+    if (data.name) projectName.value = data.name;
+    if (data.html !== undefined) codeHTML.value = data.html;
+    if (data.css !== undefined) codeCSS.value = data.css;
+    if (data.js !== undefined) codeJS.value = data.js;
+    if (data.fontSize) {
+      fontSize = data.fontSize;
+      applyFontSize();
+    }
+  }
+
+  // ── Run Preview ──
+  function runPreview() {
+    const html = codeHTML.value;
+    const css = codeCSS.value;
+    const js = codeJS.value;
+
+    // Console capture script injected into iframe
+    const consoleCapture = `
+<script>
+(function(){
+  const _post = (type, args) => {
+    try {
+      parent.postMessage({
+        source: 'cloudcode-preview',
+        type: type,
+        args: Array.from(args).map(a => {
+          try { return typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a); }
+          catch(e) { return String(a); }
+        })
+      }, '*');
+    } catch(e){}
+  };
+  const orig = {};
+  ['log','warn','error','info'].forEach(m => {
+    orig[m] = console[m];
+    console[m] = function() { orig[m].apply(console, arguments); _post(m, arguments); };
+  });
+  window.onerror = function(msg, src, line, col, err) {
+    _post('error', [msg + (line ? ' (line ' + line + ':' + col + ')' : '')]);
+  };
+  window.addEventListener('unhandledrejection', function(e) {
+    _post('error', ['Unhandled Promise Rejection: ' + (e.reason ? (e.reason.message || e.reason) : 'unknown')]);
+  });
+})();
+<\/script>`;
+
+    const fullHTML = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>${css}</style>
+${consoleCapture}
+</head>
+<body>
+${extractBody(html)}
+<script>${js}<\/script>
+</body>
+</html>`;
+
+    const blob = new Blob([fullHTML], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    previewFrame.src = url;
+
+    // Update fullscreen frame too if open
+    if ($('fullscreenOverlay').classList.contains('active')) {
+      $('fullscreenFrame').src = url;
+    }
+
+    // Clean up old blob URLs after a delay
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  }
+
+  function extractBody(html) {
+    const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+    if (bodyMatch) return bodyMatch[1];
+    // If no body tags, check if it has html/head structure
+    const htmlMatch = html.match(/<html[\s\S]*<\/html>/i);
+    if (htmlMatch) {
+      // Return content after </head> or return everything inside <html>
+      const afterHead = html.match(/<\/head>\s*([\s\S]*?)<\/html>/i);
+      if (afterHead) return afterHead[1].replace(/<\/?body[^>]*>/gi, '');
+    }
+    // Plain HTML snippet — return as-is
+    return html;
+  }
+
+  // ── Console Handling ──
+  window.addEventListener('message', (e) => {
+    if (e.data && e.data.source === 'cloudcode-preview') {
+      addConsoleEntry(e.data.type, e.data.args.join(' '));
+    }
+  });
+
+  function addConsoleEntry(type, text) {
+    const entry = document.createElement('div');
+    entry.className = `console-entry ${type}`;
+    entry.innerHTML = `<span class="badge">${type}</span><span>${escapeHtml(text)}</span>`;
+    consoleBody.appendChild(entry);
+    consoleBody.scrollTop = consoleBody.scrollHeight;
+    consoleEntries++;
+    consoleCount.textContent = consoleEntries;
+    consoleCount.classList.add('visible');
+  }
+
+  function clearConsole() {
+    consoleBody.innerHTML = '';
+    consoleEntries = 0;
+    consoleCount.textContent = '0';
+    consoleCount.classList.remove('visible');
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  // ── Gutter Resize (Vertical) ──
+  const gutter = $('gutter');
+  const editorPanel = $('editorPanel');
+  let isResizing = false;
+
+  gutter.addEventListener('mousedown', (e) => {
+    isResizing = true;
+    gutter.classList.add('active');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isResizing) return;
+    const workspace = document.querySelector('.workspace');
+    const rect = workspace.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const percent = (x / rect.width) * 100;
+    if (percent > 15 && percent < 85) {
+      editorPanel.style.width = percent + '%';
+      editorPanel.style.flex = 'none';
+    }
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (isResizing) {
+      isResizing = false;
+      gutter.classList.remove('active');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+  });
+
+  // ── Console Resize (Horizontal) ──
+  const consoleGutter = $('consoleGutter');
+  const consolePanel = $('consolePanel');
+  let isConsoleResizing = false;
+
+  consoleGutter.addEventListener('mousedown', (e) => {
+    isConsoleResizing = true;
+    consoleGutter.classList.add('active');
+    document.body.style.cursor = 'ns-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isConsoleResizing) return;
+    const previewPanelEl = $('previewPanel');
+    const rect = previewPanelEl.getBoundingClientRect();
+    const y = rect.bottom - e.clientY;
+    if (y > 60 && y < rect.height - 80) {
+      consolePanel.style.height = y + 'px';
+    }
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (isConsoleResizing) {
+      isConsoleResizing = false;
+      consoleGutter.classList.remove('active');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+  });
+
+  // ── Font Size ──
+  function applyFontSize() {
+    document.documentElement.style.setProperty('--editor-font-size', fontSize + 'px');
+    fontSizeLabel.textContent = fontSize;
+  }
+
+  $('fontInc').addEventListener('click', () => {
+    if (fontSize < 28) { fontSize++; applyFontSize(); updateLineNumbers(); scheduleSave(); }
+  });
+  $('fontDec').addEventListener('click', () => {
+    if (fontSize > 10) { fontSize--; applyFontSize(); updateLineNumbers(); scheduleSave(); }
+  });
+
+  // ── Buttons ──
+  $('btnRun').addEventListener('click', () => {
+    clearConsole();
+    runPreview();
+    showToast('Preview updated', 'success');
+  });
+
+  $('btnRefresh').addEventListener('click', () => {
+    clearConsole();
+    runPreview();
+  });
+
+  $('btnConsoleClear').addEventListener('click', clearConsole);
+
+  // ── Fullscreen ──
+  $('btnFullscreen').addEventListener('click', openFullscreen);
+  $('btnExitFullscreen').addEventListener('click', closeFullscreen);
+
+  function openFullscreen() {
+    const overlay = $('fullscreenOverlay');
+    overlay.classList.add('active');
+    // Copy current preview
+    const html = codeHTML.value;
+    const css = codeCSS.value;
+    const js = codeJS.value;
+    const consoleCapture = `<script>
+(function(){
+  const _post = (type, args) => {
+    try { parent.postMessage({ source: 'cloudcode-preview', type, args: Array.from(args).map(a => { try { return typeof a === 'object' ? JSON.stringify(a,null,2) : String(a); } catch(e) { return String(a); } }) }, '*'); } catch(e){}
+  };
+  ['log','warn','error','info'].forEach(m => { const o = console[m]; console[m] = function() { o.apply(console,arguments); _post(m,arguments); }; });
+  window.onerror = (msg,s,l,c) => _post('error',[msg+(l?' (line '+l+':'+c+')':'')]);
+})();
+<\/script>`;
+    const fullHTML = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${css}</style>${consoleCapture}</head><body>${extractBody(html)}<script>${js}<\/script></body></html>`;
+    const blob = new Blob([fullHTML], { type: 'text/html' });
+    $('fullscreenFrame').src = URL.createObjectURL(blob);
+  }
+
+  function closeFullscreen() {
+    $('fullscreenOverlay').classList.remove('active');
+    $('fullscreenFrame').src = 'about:blank';
+  }
+
+  // ── Share ──
+  $('btnShare').addEventListener('click', generateShareLink);
+  $('shareCopy').addEventListener('click', () => {
+    const input = $('shareUrl');
+    input.select();
+    navigator.clipboard.writeText(input.value).then(() => {
+      showToast('Link copied to clipboard!', 'success');
+    }).catch(() => {
+      document.execCommand('copy');
+      showToast('Link copied!', 'success');
+    });
+  });
+  $('shareClose').addEventListener('click', () => $('shareModal').classList.remove('active'));
+
+  function generateShareLink() {
+    const data = {
+      name: projectName.value,
+      html: codeHTML.value,
+      css: codeCSS.value,
+      js: codeJS.value
+    };
+    try {
+      const json = JSON.stringify(data);
+      const encoded = btoa(encodeURIComponent(json));
+      const url = window.location.origin + window.location.pathname + '#project=' + encoded;
+      $('shareUrl').value = url;
+      $('shareModal').classList.add('active');
+    } catch (e) {
+      showToast('Project too large to share via URL', 'error');
+    }
+  }
+
+  // ── Export ZIP ──
+  $('btnExport').addEventListener('click', async () => {
+    if (typeof JSZip === 'undefined') {
+      showToast('JSZip not loaded. Please refresh and try again.', 'error');
+      return;
+    }
+    const zip = new JSZip();
+    const name = projectName.value.replace(/[^a-zA-Z0-9_-]/g, '_') || 'project';
+    zip.file('index.html', codeHTML.value);
+    zip.file('style.css', codeCSS.value);
+    zip.file('script.js', codeJS.value);
+    // Also create a combined file
+    const combined = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${escapeHtml(projectName.value)}</title>
+<style>
+${codeCSS.value}
+</style>
+</head>
+<body>
+${extractBody(codeHTML.value)}
+<script>
+${codeJS.value}
+<\/script>
+</body>
+</html>`;
+    zip.file('combined.html', combined);
+
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name + '.zip';
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Project exported as ZIP!', 'success');
+  });
+
+  // ── Import ──
+  $('btnImport').addEventListener('click', () => $('importModal').classList.add('active'));
+  $('importClose').addEventListener('click', () => $('importModal').classList.remove('active'));
+
+  $('importConfirm').addEventListener('click', () => {
+    const raw = $('importData').value.trim();
+    if (!raw) { showToast('Please paste project data', 'error'); return; }
+    try {
+      const data = JSON.parse(raw);
+      applyProjectData(data);
+      $('importModal').classList.remove('active');
+      $('importData').value = '';
+      updateLineNumbers();
+      runPreview();
+      saveProject();
+      showToast('Project imported!', 'success');
+    } catch (e) {
+      showToast('Invalid JSON data', 'error');
+    }
+  });
+
+  $('importFile').addEventListener('click', () => {
+    $('fileInput').click();
+  });
+
+  $('fileInput').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    await handleFileImport(file);
+    e.target.value = '';
+    $('importModal').classList.remove('active');
+  });
+
+  async function handleFileImport(file) {
+    if (file.name.endsWith('.zip')) {
+      await importZip(file);
+    } else if (file.name.endsWith('.html') || file.name.endsWith('.htm')) {
+      const text = await file.text();
+      parseHTMLFile(text);
+      showToast('HTML file imported!', 'success');
+    } else {
+      showToast('Unsupported file type', 'error');
+    }
+  }
+
+  async function importZip(file) {
+    if (typeof JSZip === 'undefined') {
+      showToast('JSZip not loaded', 'error');
+      return;
+    }
+    try {
+      const zip = await JSZip.loadAsync(file);
+      let html = '', css = '', js = '';
+      for (const [name, entry] of Object.entries(zip.files)) {
+        if (entry.dir) continue;
+        const content = await entry.async('text');
+        const lower = name.toLowerCase();
+        if (lower.endsWith('.html') && !lower.includes('combined')) {
+          html = content;
+        } else if (lower.endsWith('.css')) {
+          css = content;
+        } else if (lower.endsWith('.js')) {
+          js = content;
+        }
+      }
+      if (html) codeHTML.value = html;
+      if (css) codeCSS.value = css;
+      if (js) codeJS.value = js;
+      updateLineNumbers();
+      runPreview();
+      saveProject();
+      showToast('ZIP imported!', 'success');
+    } catch (e) {
+      showToast('Failed to read ZIP file', 'error');
+    }
+  }
+
+  function parseHTMLFile(text) {
+    // Extract CSS from style tags
+    const styleMatch = text.match(/<style[^>]*>([\s\S]*?)<\/style>/gi);
+    if (styleMatch) {
+      const css = styleMatch.map(s => s.replace(/<\/?style[^>]*>/gi, '')).join('\n');
+      codeCSS.value = css;
+    }
+    // Extract JS from script tags (not src ones)
+    const scriptMatch = text.match(/<script(?![^>]*src)[^>]*>([\s\S]*?)<\/script>/gi);
+    if (scriptMatch) {
+      const js = scriptMatch.map(s => s.replace(/<\/?script[^>]*>/gi, '')).join('\n');
+      codeJS.value = js;
+    }
+    // Set full HTML
+    codeHTML.value = text;
+    updateLineNumbers();
+    runPreview();
+    saveProject();
+  }
+
+  // ── Drag & Drop ──
+  const dropZone = $('dropZone');
+  let dragCounter = 0;
+
+  document.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+    dragCounter++;
+    dropZone.classList.add('active');
+  });
+
+  document.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    dragCounter--;
+    if (dragCounter <= 0) {
+      dragCounter = 0;
+      dropZone.classList.remove('active');
+    }
+  });
+
+  document.addEventListener('dragover', (e) => e.preventDefault());
+
+  document.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    dragCounter = 0;
+    dropZone.classList.remove('active');
+    const file = e.dataTransfer.files[0];
+    if (file) await handleFileImport(file);
+  });
+
+  // ── Keyboard Shortcuts ──
+  document.addEventListener('keydown', (e) => {
+    // Ctrl+Enter or Cmd+Enter — Run
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      clearConsole();
+      runPreview();
+      showToast('Preview updated', 'success');
+    }
+    // Ctrl+S or Cmd+S — Save
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault();
+      saveProject();
+      showToast('Project saved!', 'success');
+    }
+    // Ctrl+Shift+S — Share
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'S') {
+      e.preventDefault();
+      generateShareLink();
+    }
+    // F11 — Fullscreen
+    if (e.key === 'F11') {
+      e.preventDefault();
+      if ($('fullscreenOverlay').classList.contains('active')) {
+        closeFullscreen();
+      } else {
+        openFullscreen();
+      }
+    }
+    // Escape — Close modals/fullscreen
+    if (e.key === 'Escape') {
+      closeFullscreen();
+      $('shareModal').classList.remove('active');
+      $('importModal').classList.remove('active');
+    }
+    // Ctrl+1/2/3 — Switch tabs
+    if ((e.ctrlKey || e.metaKey) && e.key === '1') { e.preventDefault(); switchTab('html'); }
+    if ((e.ctrlKey || e.metaKey) && e.key === '2') { e.preventDefault(); switchTab('css'); }
+    if ((e.ctrlKey || e.metaKey) && e.key === '3') { e.preventDefault(); switchTab('js'); }
+    // Ctrl+Shift+C — Clear console
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'C') {
+      // Only if not in a textarea
+      if (document.activeElement.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        clearConsole();
+      }
+    }
+    // Ctrl++ / Ctrl+- — Font size
+    if ((e.ctrlKey || e.metaKey) && (e.key === '=' || e.key === '+')) {
+      e.preventDefault();
+      if (fontSize < 28) { fontSize++; applyFontSize(); updateLineNumbers(); }
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === '-') {
+      e.preventDefault();
+      if (fontSize > 10) { fontSize--; applyFontSize(); updateLineNumbers(); }
+    }
+  });
+
+  // ── Project Name Save ──
+  projectName.addEventListener('input', scheduleSave);
+
+  // ── Modal Overlay Click to Close ──
+  $('shareModal').addEventListener('click', (e) => {
+    if (e.target === $('shareModal')) $('shareModal').classList.remove('active');
+  });
+  $('importModal').addEventListener('click', (e) => {
+    if (e.target === $('importModal')) $('importModal').classList.remove('active');
+  });
+
+  // ── Initialize ──
+  loadProject();
+  updateLineNumbers();
+  applyFontSize();
+  // Initial render after short delay to ensure everything is loaded
+  setTimeout(() => {
+    clearConsole();
+    runPreview();
+  }, 200);
+
+})();
+</script>
+</body>
+</html>
